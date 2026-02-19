@@ -174,6 +174,7 @@ struct RepositoriesFeature {
       pendingID: Worktree.ID,
       previousSelection: Worktree.ID?,
       repositoryID: Repository.ID,
+      attemptedBaseDirectory: URL,
       name: String?
     )
     case consumeSetupScript(Worktree.ID)
@@ -807,6 +808,11 @@ struct RepositoriesFeature {
         let pendingID = "pending:\(uuid().uuidString)"
         @Shared(.repositorySettings(repository.rootURL)) var repositorySettings
         let repositoryName = repositorySettings.repositoryName
+        let worktreeBaseDirectory = SupacodePaths.worktreeBaseDirectory(
+          for: repository.rootURL,
+          configuredName: repositoryName,
+          configuredWorktreeDirectory: repositorySettings.worktreeDirectory
+        )
         let selectedBaseRef = repositorySettings.worktreeBaseRef
         let copyIgnoredOnWorktreeCreate = repositorySettings.copyIgnoredOnWorktreeCreate
         let copyUntrackedOnWorktreeCreate = repositorySettings.copyUntrackedOnWorktreeCreate
@@ -860,6 +866,7 @@ struct RepositoriesFeature {
                     pendingID: pendingID,
                     previousSelection: previousSelection,
                     repositoryID: repository.id,
+                    attemptedBaseDirectory: worktreeBaseDirectory,
                     name: nil
                   )
                 )
@@ -876,6 +883,7 @@ struct RepositoriesFeature {
                     pendingID: pendingID,
                     previousSelection: previousSelection,
                     repositoryID: repository.id,
+                    attemptedBaseDirectory: worktreeBaseDirectory,
                     name: nil
                   )
                 )
@@ -889,6 +897,7 @@ struct RepositoriesFeature {
                     pendingID: pendingID,
                     previousSelection: previousSelection,
                     repositoryID: repository.id,
+                    attemptedBaseDirectory: worktreeBaseDirectory,
                     name: nil
                   )
                 )
@@ -902,6 +911,7 @@ struct RepositoriesFeature {
                     pendingID: pendingID,
                     previousSelection: previousSelection,
                     repositoryID: repository.id,
+                    attemptedBaseDirectory: worktreeBaseDirectory,
                     name: nil
                   )
                 )
@@ -915,6 +925,7 @@ struct RepositoriesFeature {
                     pendingID: pendingID,
                     previousSelection: previousSelection,
                     repositoryID: repository.id,
+                    attemptedBaseDirectory: worktreeBaseDirectory,
                     name: nil
                   )
                 )
@@ -973,7 +984,7 @@ struct RepositoriesFeature {
             let stream = createWorktreeStream(
               name,
               repository.rootURL,
-              repositoryName,
+              worktreeBaseDirectory,
               copyIgnored,
               copyUntracked,
               resolvedBaseRef
@@ -1033,6 +1044,7 @@ struct RepositoriesFeature {
                 pendingID: pendingID,
                 previousSelection: previousSelection,
                 repositoryID: repository.id,
+                attemptedBaseDirectory: worktreeBaseDirectory,
                 name: newWorktreeName
               )
             )
@@ -1079,6 +1091,7 @@ struct RepositoriesFeature {
         let pendingID,
         let previousSelection,
         let repositoryID,
+        let attemptedBaseDirectory,
         let name
       ):
         let previousSelectedWorktree = state.worktree(for: previousSelection)
@@ -1086,6 +1099,7 @@ struct RepositoriesFeature {
         restoreSelection(previousSelection, pendingID: pendingID, state: &state)
         let cleanup = cleanupFailedWorktree(
           repositoryID: repositoryID,
+          attemptedBaseDirectory: attemptedBaseDirectory,
           name: name,
           state: &state
         )
@@ -3047,6 +3061,7 @@ private func removeWorktree(
 
 private func cleanupFailedWorktree(
   repositoryID: Repository.ID,
+  attemptedBaseDirectory: URL,
   name: String?,
   state: inout RepositoriesFeature.State
 ) -> FailedWorktreeCleanup {
@@ -3059,14 +3074,7 @@ private func cleanupFailedWorktree(
     )
   }
   let repositoryRootURL = URL(fileURLWithPath: repositoryID).standardizedFileURL
-  @Shared(.settingsFile) var settingsFile
-  let configuredRepositoryName = $settingsFile.withLock { settings in
-    settings.repositories[repositoryID]?.repositoryName
-  }
-  let baseDirectory = SupacodePaths.repositoryDirectory(
-    for: repositoryRootURL,
-    configuredName: configuredRepositoryName
-  ).standardizedFileURL
+  let baseDirectory = attemptedBaseDirectory.standardizedFileURL
   let worktreeURL =
     baseDirectory
     .appending(path: name, directoryHint: .isDirectory)

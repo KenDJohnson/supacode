@@ -21,6 +21,37 @@ nonisolated enum SupacodePaths {
     return reposDirectory.appending(path: name, directoryHint: .isDirectory)
   }
 
+  static func worktreeBaseDirectory(
+    for rootURL: URL,
+    configuredName: String?,
+    configuredWorktreeDirectory: String?
+  ) -> URL {
+    if let configuredPath = normalizedWorktreeDirectory(configuredWorktreeDirectory) {
+      return URL(filePath: configuredPath, directoryHint: .isDirectory)
+    }
+    return repositoryDirectory(for: rootURL, configuredName: configuredName)
+  }
+
+  static func normalizedWorktreeDirectory(_ configuredWorktreeDirectory: String?) -> String? {
+    guard let configuredWorktreeDirectory else {
+      return nil
+    }
+    let trimmed = configuredWorktreeDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      return nil
+    }
+    guard trimmed.hasPrefix("/") else {
+      return nil
+    }
+    guard
+      !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) })
+    else {
+      return nil
+    }
+    let url = URL(filePath: trimmed, directoryHint: .isDirectory).standardizedFileURL
+    return url.path(percentEncoded: false)
+  }
+
   static var settingsURL: URL {
     baseDirectory.appending(path: "settings.json", directoryHint: .notDirectory)
   }

@@ -9,6 +9,8 @@ struct RepositorySettingsFeature {
     var settings: RepositorySettings
     var repositoryNameDraft = ""
     var repositoryNameValidationMessage: String?
+    var worktreeDirectoryDraft = ""
+    var worktreeDirectoryValidationMessage: String?
     var isBareRepository = false
     var branchOptions: [String] = []
     var defaultWorktreeBaseRef = "origin/main"
@@ -22,6 +24,11 @@ struct RepositorySettingsFeature {
     case repositoryNameDraftChanged(String)
     case applyRepositoryName
     case resetRepositoryNameToDefault
+    case worktreeBaseRefSelected(String?)
+    case worktreeDirectoryDraftChanged(String)
+    case worktreeDirectoryChosen(String)
+    case applyWorktreeDirectory
+    case resetWorktreeDirectoryToDefault
     case delegate(Delegate)
     case binding(BindingAction<State>)
   }
@@ -72,6 +79,8 @@ struct RepositorySettingsFeature {
           configuredName: updatedSettings.repositoryName
         )
         state.repositoryNameValidationMessage = nil
+        state.worktreeDirectoryDraft = updatedSettings.worktreeDirectory ?? ""
+        state.worktreeDirectoryValidationMessage = nil
         state.isBareRepository = isBareRepository
         guard isBareRepository, updatedSettings != settings else { return .none }
         let rootURL = state.rootURL
@@ -151,6 +160,58 @@ struct RepositorySettingsFeature {
         $repositorySettings.withLock { $0 = state.settings }
         return .send(.delegate(.repositoryNameChanged(rootURL)))
 
+      case .worktreeBaseRefSelected(let ref):
+        guard state.settings.worktreeBaseRef != ref else {
+          return .none
+        }
+        state.settings.worktreeBaseRef = ref
+        let rootURL = state.rootURL
+        @Shared(.repositorySettings(rootURL)) var repositorySettings
+        $repositorySettings.withLock { $0 = state.settings }
+        return .send(.delegate(.settingsChanged(rootURL)))
+
+      case .worktreeDirectoryDraftChanged(let draft):
+        state.worktreeDirectoryDraft = draft
+        state.worktreeDirectoryValidationMessage = nil
+        return .none
+
+      case .worktreeDirectoryChosen(let path):
+        state.worktreeDirectoryDraft = path
+        state.worktreeDirectoryValidationMessage = nil
+        return .none
+
+      case .applyWorktreeDirectory:
+        let rootURL = state.rootURL.standardizedFileURL
+        switch Self.validateWorktreeDirectoryDraft(state.worktreeDirectoryDraft) {
+        case .invalid(let message):
+          state.worktreeDirectoryValidationMessage = message
+          return .none
+        case .valid(let normalized):
+          guard state.settings.worktreeDirectory != normalized else {
+            state.worktreeDirectoryDraft = normalized ?? ""
+            state.worktreeDirectoryValidationMessage = nil
+            return .none
+          }
+          state.settings.worktreeDirectory = normalized
+          state.worktreeDirectoryDraft = normalized ?? ""
+          state.worktreeDirectoryValidationMessage = nil
+          @Shared(.repositorySettings(rootURL)) var repositorySettings
+          $repositorySettings.withLock { $0 = state.settings }
+          return .send(.delegate(.settingsChanged(rootURL)))
+        }
+
+      case .resetWorktreeDirectoryToDefault:
+        state.worktreeDirectoryDraft = ""
+        state.worktreeDirectoryValidationMessage = nil
+        guard state.settings.worktreeDirectory != nil else {
+          return .none
+        }
+        let rootURL = state.rootURL.standardizedFileURL
+        state.settings.worktreeDirectory = nil
+        @Shared(.repositorySettings(rootURL)) var repositorySettings
+        $repositorySettings.withLock { $0 = state.settings }
+        return .send(.delegate(.settingsChanged(rootURL)))
+
       case .binding:
         if state.isBareRepository {
           state.settings.copyIgnoredOnWorktreeCreate = false
@@ -165,5 +226,27 @@ struct RepositorySettingsFeature {
         return .none
       }
     }
+  }
+
+  private enum WorktreeDirectoryValidationResult {
+    case valid(String?)
+    case invalid(String)
+  }
+
+  private static func validateWorktreeDirectoryDraft(_ draft: String) -> WorktreeDirectoryValidationResult {
+    let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.isEmpty {
+      return .valid(nil)
+    }
+    if trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+      return .invalid("Worktree directory contains unsupported characters.")
+    }
+    if !trimmed.hasPrefix("/") {
+      return .invalid("Worktree directory must be an absolute path.")
+    }
+    let normalized = URL(filePath: trimmed, directoryHint: .isDirectory)
+      .standardizedFileURL
+      .path(percentEncoded: false)
+    return .valid(normalized)
   }
 }

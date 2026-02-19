@@ -95,7 +95,7 @@ struct GitClientCreateWorktreeStreamTests {
     for try await _ in client.createWorktreeStream(
       named: "swift-otter",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: true,
       copyUntracked: false,
       baseRef: "origin/main"
@@ -116,7 +116,7 @@ struct GitClientCreateWorktreeStreamTests {
     #expect(snapshot.arguments.contains("swift-otter"))
   }
 
-  @Test func createWorktreeStreamUsesConfiguredRepositoryNameForBaseDirectory() async throws {
+  @Test func createWorktreeStreamUsesProvidedWorktreeBaseDirectory() async throws {
     let recorder = GitShellInvocationRecorder()
     let shell = ShellClient(
       run: { _, _, _ in ShellOutput(stdout: "", stderr: "", exitCode: 0) },
@@ -142,11 +142,12 @@ struct GitClientCreateWorktreeStreamTests {
     )
     let client = GitClient(shell: shell)
     let repoRoot = URL(fileURLWithPath: "/tmp/repo")
+    let baseDirectory = URL(fileURLWithPath: "/tmp/custom-worktrees")
 
     for try await _ in client.createWorktreeStream(
       named: "swift-otter",
       in: repoRoot,
-      repositoryName: "workspace-repo",
+      worktreeBaseDirectory: baseDirectory,
       copyIgnored: false,
       copyUntracked: false,
       baseRef: ""
@@ -155,9 +156,7 @@ struct GitClientCreateWorktreeStreamTests {
     let snapshot = recorder.snapshot()
     #expect(
       snapshot.arguments.contains(
-        SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: "workspace-repo").path(
-          percentEncoded: false
-        )
+        baseDirectory.path(percentEncoded: false)
       )
     )
   }
@@ -189,7 +188,7 @@ struct GitClientCreateWorktreeStreamTests {
     for try await event in client.createWorktreeStream(
       named: "swift-otter",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: true,
       copyUntracked: true,
       baseRef: ""
@@ -235,7 +234,7 @@ struct GitClientCreateWorktreeStreamTests {
     for try await event in client.createWorktreeStream(
       named: "new-wt",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: false,
       copyUntracked: false,
       baseRef: ""
@@ -267,7 +266,7 @@ struct GitClientCreateWorktreeStreamTests {
     for try await event in client.createWorktreeStream(
       named: "new-wt",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: false,
       copyUntracked: false,
       baseRef: ""
@@ -310,7 +309,7 @@ struct GitClientCreateWorktreeStreamTests {
       for try await _ in client.createWorktreeStream(
         named: "new-wt",
         in: repoRoot,
-        repositoryName: nil,
+        worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
         copyIgnored: false,
         copyUntracked: false,
         baseRef: ""
@@ -351,7 +350,7 @@ struct GitClientCreateWorktreeStreamTests {
       _ = try await client.createWorktree(
         named: "new-wt",
         in: repoRoot,
-        repositoryName: nil,
+        worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
         copyIgnored: false,
         copyUntracked: false,
         baseRef: ""
@@ -388,7 +387,7 @@ struct GitClientCreateWorktreeStreamTests {
     let worktree = try await client.createWorktree(
       named: "new-wt",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: false,
       copyUntracked: false,
       baseRef: ""
@@ -416,7 +415,7 @@ struct GitClientCreateWorktreeStreamTests {
     let worktree = try await client.createWorktree(
       named: "new-wt",
       in: repoRoot,
-      repositoryName: nil,
+      worktreeBaseDirectory: SupacodePaths.repositoryDirectory(for: repoRoot, configuredName: nil),
       copyIgnored: false,
       copyUntracked: false,
       baseRef: ""

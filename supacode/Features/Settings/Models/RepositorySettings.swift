@@ -2,6 +2,7 @@ import Foundation
 
 nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
   var repositoryName: String?
+  var worktreeDirectory: String?
   var setupScript: String
   var runScript: String
   var openActionID: String
@@ -12,6 +13,7 @@ nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
 
   private enum CodingKeys: String, CodingKey {
     case repositoryName
+    case worktreeDirectory
     case setupScript
     case runScript
     case openActionID
@@ -23,6 +25,7 @@ nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
 
   static let `default` = RepositorySettings(
     repositoryName: nil,
+    worktreeDirectory: nil,
     setupScript: "",
     runScript: "",
     openActionID: OpenWorktreeAction.automaticSettingsID,
@@ -34,6 +37,7 @@ nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
 
   init(
     repositoryName: String?,
+    worktreeDirectory: String?,
     setupScript: String,
     runScript: String,
     openActionID: String,
@@ -43,6 +47,7 @@ nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
     pullRequestMergeStrategy: PullRequestMergeStrategy
   ) {
     self.repositoryName = repositoryName
+    self.worktreeDirectory = worktreeDirectory
     self.setupScript = setupScript
     self.runScript = runScript
     self.openActionID = openActionID
@@ -56,6 +61,8 @@ nonisolated struct RepositorySettings: Codable, Equatable, Sendable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     repositoryName =
       try container.decodeIfPresent(String.self, forKey: .repositoryName)
+    worktreeDirectory =
+      try container.decodeIfPresent(String.self, forKey: .worktreeDirectory)
     setupScript =
       try container.decodeIfPresent(String.self, forKey: .setupScript)
       ?? Self.default.setupScript

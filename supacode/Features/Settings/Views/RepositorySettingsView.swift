@@ -1,18 +1,28 @@
 import ComposableArchitecture
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct RepositorySettingsView: View {
   @Bindable var store: StoreOf<RepositorySettingsFeature>
   @State private var isBranchPickerPresented = false
   @State private var branchSearchText = ""
+  @State private var isWorktreeDirectoryPickerPresented = false
 
   var body: some View {
     let baseRefOptions =
       store.branchOptions.isEmpty ? [store.defaultWorktreeBaseRef] : store.branchOptions
     let settings = $store.settings
+    let defaultWorktreeDirectory = SupacodePaths.repositoryDirectory(
+      for: store.rootURL,
+      configuredName: store.settings.repositoryName
+    ).path(percentEncoded: false)
     let repositoryName = Binding(
       get: { store.repositoryNameDraft },
       set: { store.send(.repositoryNameDraftChanged($0)) }
+    )
+    let worktreeDirectory = Binding(
+      get: { store.worktreeDirectoryDraft },
+      set: { store.send(.worktreeDirectoryDraftChanged($0)) }
     )
     Form {
       Section {
@@ -64,7 +74,7 @@ struct RepositorySettingsView: View {
               automaticLabel: "Automatic (\(store.defaultWorktreeBaseRef))",
               selection: store.settings.worktreeBaseRef,
               onSelect: { ref in
-                store.settings.worktreeBaseRef = ref
+                store.send(.worktreeBaseRefSelected(ref))
                 isBranchPickerPresented = false
               }
             )
@@ -77,6 +87,36 @@ struct RepositorySettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
           Text("Branch new workspaces from")
           Text("Each workspace is an isolated copy of your codebase.")
+            .foregroundStyle(.secondary)
+        }
+      }
+      Section {
+        TextField("Absolute directory path", text: worktreeDirectory)
+          .textFieldStyle(.roundedBorder)
+        HStack(spacing: 8) {
+          Button("Choose...") {
+            isWorktreeDirectoryPickerPresented = true
+          }
+          .help("Choose a worktree directory (no keyboard shortcut).")
+          Button("Apply") {
+            store.send(.applyWorktreeDirectory)
+          }
+          .help("Apply worktree directory changes (no keyboard shortcut).")
+          Button("Use Default") {
+            store.send(.resetWorktreeDirectoryToDefault)
+          }
+          .help("Use the default Supacode worktree directory (no keyboard shortcut).")
+        }
+        Text("Default: \(defaultWorktreeDirectory)")
+          .foregroundStyle(.secondary)
+        if let message = store.worktreeDirectoryValidationMessage {
+          Text(message)
+            .foregroundStyle(.red)
+        }
+      } header: {
+        VStack(alignment: .leading, spacing: 4) {
+          Text("Worktree Directory")
+          Text("Absolute path used as the base directory when creating new worktrees.")
             .foregroundStyle(.secondary)
         }
       }
@@ -167,6 +207,21 @@ struct RepositorySettingsView: View {
     }
     .formStyle(.grouped)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    .fileImporter(
+      isPresented: $isWorktreeDirectoryPickerPresented,
+      allowedContentTypes: [.folder],
+      allowsMultipleSelection: false
+    ) { result in
+      switch result {
+      case .success(let urls):
+        guard let url = urls.first else {
+          return
+        }
+        store.send(.worktreeDirectoryChosen(url.path(percentEncoded: false)))
+      case .failure:
+        break
+      }
+    }
     .task {
       store.send(.task)
     }

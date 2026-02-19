@@ -42,6 +42,7 @@ struct SettingsFilePersistenceTests {
         $0.pinnedWorktreeIDs = ["/tmp/repo-a/wt-1"]
         $0.repositories["/tmp/repo-a"] = RepositorySettings(
           repositoryName: "workspace-repo",
+          worktreeDirectory: "/tmp/worktrees/repo-a",
           setupScript: "",
           runScript: "npm run dev",
           openActionID: OpenWorktreeAction.automaticSettingsID,
@@ -64,6 +65,7 @@ struct SettingsFilePersistenceTests {
     #expect(reloaded.repositoryRoots == ["/tmp/repo-a", "/tmp/repo-b"])
     #expect(reloaded.pinnedWorktreeIDs == ["/tmp/repo-a/wt-1"])
     #expect(reloaded.repositories["/tmp/repo-a"]?.repositoryName == "workspace-repo")
+    #expect(reloaded.repositories["/tmp/repo-a"]?.worktreeDirectory == "/tmp/worktrees/repo-a")
   }
 
   @Test(.dependencies) func invalidJSONResetsToDefaults() throws {

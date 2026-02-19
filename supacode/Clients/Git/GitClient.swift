@@ -238,7 +238,7 @@ struct GitClient {
   nonisolated func createWorktree(
     named name: String,
     in repoRoot: URL,
-    repositoryName: String?,
+    worktreeBaseDirectory: URL,
     copyIgnored: Bool,
     copyUntracked: Bool,
     baseRef: String
@@ -247,7 +247,7 @@ struct GitClient {
     for try await event in createWorktreeStream(
       named: name,
       in: repoRoot,
-      repositoryName: repositoryName,
+      worktreeBaseDirectory: worktreeBaseDirectory,
       copyIgnored: copyIgnored,
       copyUntracked: copyUntracked,
       baseRef: baseRef
@@ -257,13 +257,11 @@ struct GitClient {
       }
     }
     guard let createdWorktree else {
-      let repositoryRootURL = repoRoot.standardizedFileURL
       let wtURL = try wtScriptURL()
       let command =
         ([wtURL.lastPathComponent]
         + createWorktreeArguments(
-          repositoryRootURL: repositoryRootURL,
-          repositoryName: repositoryName,
+          worktreeBaseDirectory: worktreeBaseDirectory,
           name: name,
           copyIgnored: copyIgnored,
           copyUntracked: copyUntracked,
@@ -277,7 +275,7 @@ struct GitClient {
   nonisolated func createWorktreeStream(
     named name: String,
     in repoRoot: URL,
-    repositoryName: String?,
+    worktreeBaseDirectory: URL,
     copyIgnored: Bool,
     copyUntracked: Bool,
     baseRef: String
@@ -288,8 +286,7 @@ struct GitClient {
         do {
           let wtURL = try wtScriptURL()
           let arguments = createWorktreeArguments(
-            repositoryRootURL: repositoryRootURL,
-            repositoryName: repositoryName,
+            worktreeBaseDirectory: worktreeBaseDirectory,
             name: name,
             copyIgnored: copyIgnored,
             copyUntracked: copyUntracked,
@@ -360,18 +357,13 @@ struct GitClient {
   }
 
   nonisolated private func createWorktreeArguments(
-    repositoryRootURL: URL,
-    repositoryName: String?,
+    worktreeBaseDirectory: URL,
     name: String,
     copyIgnored: Bool,
     copyUntracked: Bool,
     baseRef: String
   ) -> [String] {
-    let baseDir = SupacodePaths.repositoryDirectory(
-      for: repositoryRootURL,
-      configuredName: repositoryName
-    )
-    var arguments = ["--base-dir", baseDir.path(percentEncoded: false), "sw"]
+    var arguments = ["--base-dir", worktreeBaseDirectory.path(percentEncoded: false), "sw"]
     if copyIgnored {
       arguments.append("--copy-ignored")
     }

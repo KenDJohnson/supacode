@@ -21,6 +21,13 @@ struct RepositorySettingsKeyTests {
     #expect(!json.contains("worktreeBaseRef"))
   }
 
+  @Test func encodingOmitsNilWorktreeDirectory() throws {
+    let data = try JSONEncoder().encode(RepositorySettings.default)
+    let json = String(bytes: data, encoding: .utf8) ?? ""
+
+    #expect(!json.contains("worktreeDirectory"))
+  }
+
   @Test func decodingMissingRepositoryNameDefaultsToNil() throws {
     let data = Data(
       """
@@ -38,6 +45,7 @@ struct RepositorySettingsKeyTests {
     let settings = try JSONDecoder().decode(RepositorySettings.self, from: data)
 
     #expect(settings.repositoryName == nil)
+    #expect(settings.worktreeDirectory == nil)
   }
 
   @Test(.dependencies) func loadCreatesDefaultAndPersists() throws {

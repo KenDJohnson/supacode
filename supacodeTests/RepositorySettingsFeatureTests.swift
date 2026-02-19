@@ -49,6 +49,7 @@ struct RepositorySettingsFeatureTests {
       ]
       $0.repositories[otherRootURL.path(percentEncoded: false)] = RepositorySettings(
         repositoryName: "workspace-repo",
+        worktreeDirectory: nil,
         setupScript: "",
         runScript: "",
         openActionID: OpenWorktreeAction.automaticSettingsID,
@@ -120,5 +121,76 @@ struct RepositorySettingsFeatureTests {
       $0.repositoryNameValidationMessage = nil
     }
     await store.receive(\.delegate.repositoryNameChanged)
+  }
+
+  @Test(.dependencies) func applyWorktreeDirectoryPersistsAndNotifies() async {
+    let rootURL = URL(fileURLWithPath: "/tmp/repo-\(UUID().uuidString)")
+    let normalizedPath = URL(filePath: "/tmp/worktrees/repo-a", directoryHint: .isDirectory)
+      .standardizedFileURL
+      .path(percentEncoded: false)
+    let store = TestStore(
+      initialState: RepositorySettingsFeature.State(
+        rootURL: rootURL,
+        settings: .default
+      )
+    ) {
+      RepositorySettingsFeature()
+    }
+
+    await store.send(.worktreeDirectoryDraftChanged("/tmp/worktrees/repo-a")) {
+      $0.worktreeDirectoryDraft = "/tmp/worktrees/repo-a"
+      $0.worktreeDirectoryValidationMessage = nil
+    }
+    await store.send(.applyWorktreeDirectory) {
+      $0.settings.worktreeDirectory = normalizedPath
+      $0.worktreeDirectoryDraft = normalizedPath
+      $0.worktreeDirectoryValidationMessage = nil
+    }
+    await store.receive(\.delegate.settingsChanged)
+
+    @Shared(.repositorySettings(rootURL)) var repositorySettings
+    #expect(repositorySettings.worktreeDirectory == normalizedPath)
+  }
+
+  @Test func applyWorktreeDirectoryRejectsRelativePath() async {
+    let rootURL = URL(fileURLWithPath: "/tmp/repo-a")
+    let store = TestStore(
+      initialState: RepositorySettingsFeature.State(
+        rootURL: rootURL,
+        settings: .default
+      )
+    ) {
+      RepositorySettingsFeature()
+    }
+
+    await store.send(.worktreeDirectoryDraftChanged("worktrees/repo-a")) {
+      $0.worktreeDirectoryDraft = "worktrees/repo-a"
+      $0.worktreeDirectoryValidationMessage = nil
+    }
+    await store.send(.applyWorktreeDirectory) {
+      $0.worktreeDirectoryValidationMessage = "Worktree directory must be an absolute path."
+    }
+  }
+
+  @Test(.dependencies) func resetWorktreeDirectoryToDefaultClearsAndNotifies() async {
+    let rootURL = URL(fileURLWithPath: "/tmp/repo-a")
+    var settings = RepositorySettings.default
+    settings.worktreeDirectory = "/tmp/worktrees/repo-a"
+    let store = TestStore(
+      initialState: RepositorySettingsFeature.State(
+        rootURL: rootURL,
+        settings: settings,
+        worktreeDirectoryDraft: "/tmp/worktrees/repo-a"
+      )
+    ) {
+      RepositorySettingsFeature()
+    }
+
+    await store.send(.resetWorktreeDirectoryToDefault) {
+      $0.settings.worktreeDirectory = nil
+      $0.worktreeDirectoryDraft = ""
+      $0.worktreeDirectoryValidationMessage = nil
+    }
+    await store.receive(\.delegate.settingsChanged)
   }
 }
